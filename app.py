@@ -25,15 +25,25 @@ def chat():
 
     return _cors(jsonify(resp.json())), resp.status_code
 
-@app.route('/health')
-def health():
-    return 'OK', 200
+@app.route('/api/chat', methods=['POST', 'OPTIONS'])
+def chat():
+    if request.method == 'OPTIONS':
+        return _cors(jsonify({}))
 
-def _cors(response):
-    response.headers['Access-Control-Allow-Origin']  = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    return response
+    if not GROQ_KEY:
+        return _cors(jsonify({'error': 'No API key configured on server'})), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8000)))
+    resp = requests.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        headers={
+            'Content-Type':  'application/json',
+            'Authorization': 'Bearer ' + GROQ_KEY
+        },
+        json=request.get_json()
+    )
+
+    # ← ADD THIS: log the error so it appears in Render logs
+    if resp.status_code != 200:
+        print(f"Groq error {resp.status_code}: {resp.text}", flush=True)
+
+    return _cors(jsonify(resp.json())), resp.status_code
